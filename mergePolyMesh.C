@@ -402,15 +402,15 @@ void Foam::mergePolyMesh::merge()
 
     switch(axisDir_)
     {
-        case 0:
+        case dirX:
             masterPatchName = "MergingRight";
             slavePatchName = "MergingLeft";
             break;
-        case 1:
+        case dirY:
             masterPatchName = "MergingBack";
             slavePatchName = "MergingFront";
             break;
-        case 2:
+        case dirZ:
             masterPatchName = "MergingTop";
             slavePatchName = "MergingBottom";
             break;
@@ -460,7 +460,7 @@ void Foam::mergePolyMesh::merge()
     movePoints(morphMap->preMotionPoints());
 
     // Update boundaries to remove empty ones.
-    List<polyPatch*> bmPatches;
+    DynamicList<polyPatch*> bmPatches(boundaryMesh().size());
 
     forAll(boundaryMesh(), patchi)
     {
@@ -469,7 +469,9 @@ void Foam::mergePolyMesh::merge()
             boundaryMesh()[patchi].name() != masterPatchName &&
             boundaryMesh()[patchi].name() != slavePatchName
         )
-        bmPatches.append(boundaryMesh()[patchi].clone(boundaryMesh()).ptr());
+        {
+            bmPatches.append(boundaryMesh()[patchi].clone(boundaryMesh()).ptr());
+        }
     }
 
     removeBoundary();
@@ -481,34 +483,39 @@ void Foam::mergePolyMesh::setAxisDir(const label axisDir)
 {
     axisDir_ = axisDir;
 
+    label nPatches = boundaryMesh().size();
+    patchDicts_.setSize(nPatches);
+    patchNames_.setSize(nPatches);
+
     OStringStream os;
-    List<polyPatch*> bmPatches;
+    List<polyPatch*> bmPatches(nPatches);
 
     forAll(boundaryMesh(), patchi)
     {
         const polyPatch& bp = boundaryMesh()[patchi];
         
+        os.rewind();
         bp.write(os);
         patchDicts_[patchi] = dictionary(IStringStream(os.str())());
 
-        if (axisDir_ == 0 && bp.name() == "Right")
+        if (axisDir_ == dirX && bp.name() == "Right")
         {
             patchNames_[patchi] = "MergingRight";
         }
-        else if (axisDir_ == 1 && bp.name() == "Back")
+        else if (axisDir_ == dirY && bp.name() == "Back")
         {
             patchNames_[patchi] = "MergingBack";
         }
-        else if (axisDir_ == 2 && bp.name() == "Top")
+        else if (axisDir_ == dirZ && bp.name() == "Top")
         {
             patchNames_[patchi] = "MergingTop";   
         }
-        else{
+        else
+        {
             patchNames_[patchi] = bp.name();
         }
 
-        bmPatches.append
-        (
+        bmPatches[patchi] =
             new polyPatch
             (
                 patchNames_[patchi],
@@ -516,8 +523,7 @@ void Foam::mergePolyMesh::setAxisDir(const label axisDir)
                 patchi,
                 boundaryMesh(),
                 bp.physicalType()
-            )
-        );   
+            );   
     }
 
     removeBoundary();
@@ -540,19 +546,22 @@ void Foam::mergePolyMesh::getProps
 
     forAll(cellZones(), zonei)
     {
+        zoneCells[zonei].setCapacity(cellZones()[zonei].size());
         forAll(cellZones()[zonei], celli)
         {
             zoneCells[zonei].append(cellZones()[zonei][celli]);
         }
     }
 
+    label nPatches = boundaryMesh().size();
+    boundaryPatchNames.setSize(nPatches);
+    boundaryFaces.setSize(nPatches);
+
     forAll(boundaryMesh(), patchi)
     {
-        word name = boundaryMesh()[patchi].name();
-        boundaryPatchNames.append(name);
-        boundaryFaces.append(boundaryMesh()[patchi].localFaces());
+        boundaryPatchNames[patchi] = boundaryMesh()[patchi].name();
+        boundaryFaces[patchi] = boundaryMesh()[patchi].localFaces();
     }
-
 }
 
 

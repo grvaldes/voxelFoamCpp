@@ -43,6 +43,8 @@ SourceFiles
 namespace Foam
 {
 
+enum axisDir { dirX = 0, dirY = 1, dirZ = 2 };
+
 // Forward declaration of classes
 
 /*---------------------------------------------------------------------------*\
